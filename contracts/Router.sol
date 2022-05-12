@@ -19,7 +19,9 @@ import "./interfaces/IExecutorManager.sol";
 
 contract Router is IRouter, IPoolCallback, Multicall, Ownable {
     fallback() external {}
-    receive() payable external {}
+
+    receive() external payable {}
+
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -51,7 +53,7 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         address poolAddress;
         uint8 direction;
         uint16 leverage;
-        uint256 position;        
+        uint256 position;
     }
 
     struct tokenDate {
@@ -63,7 +65,11 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
 
     mapping(uint32 => tokenDate) public _tokenData;
 
-    constructor(address factory,  address wETH,address legalExecutor) {
+    constructor(
+        address factory,
+        address wETH,
+        address legalExecutor
+    ) {
         _legalExecutor = legalExecutor;
         _factory = factory;
         _wETH = wETH;
@@ -78,29 +84,32 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
     function setOwnerRate(uint32 rate) public onlyOwner {
         require(rate < E4, "invalid contribute rate");
         _ownerRate = rate;
-        emit SetAgentParam(AgentParam.OwnerRate,rate);
+        emit SetAgentParam(AgentParam.OwnerRate, rate);
     }
 
     function setContributeRate(uint32 rate) public onlyOwner {
-        require(rate < _ownerRate , "invalid contribute rate");
+        require(rate < _ownerRate, "invalid contribute rate");
         _contributeRate = rate;
-        emit SetAgentParam(AgentParam.ContributeRate,rate);
+        emit SetAgentParam(AgentParam.ContributeRate, rate);
     }
 
     function setSecondUpperRate(uint32 rate) public onlyOwner {
         require(rate < E4, "invalid second upper rate");
         _secondUpperRate = rate;
-        emit SetAgentParam(AgentParam.SecondUpperRate,rate);
+        emit SetAgentParam(AgentParam.SecondUpperRate, rate);
     }
 
     function setExecPreBillAmount(uint256 execPreBillAmount) public onlyOwner {
         _execPreBillAmount = execPreBillAmount;
-        emit SetAgentParam(AgentParam.ExecPreBillAmount,execPreBillAmount);
+        emit SetAgentParam(AgentParam.ExecPreBillAmount, execPreBillAmount);
     }
 
-    function setExecPositionAmount(uint256 execPositionAmount) public onlyOwner {
+    function setExecPositionAmount(uint256 execPositionAmount)
+        public
+        onlyOwner
+    {
         _execPositionAmount = execPositionAmount;
-        emit SetAgentParam(AgentParam.ExecPositionAmount,execPositionAmount);
+        emit SetAgentParam(AgentParam.ExecPositionAmount, execPositionAmount);
     }
 
     function setUpRelation(address upAddress) public {
@@ -108,7 +117,7 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         require(upAddress != address(0), "can't address 0");
 
         _upRelation[msg.sender] = upAddress;
-        emit RelationCreate(msg.sender,upAddress);
+        emit RelationCreate(msg.sender, upAddress);
     }
 
     function getUserContribute(address user, address tokenAddress)
@@ -120,12 +129,11 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
     }
 
     function claimContribute(address tokenAddress) public {
-        IERC20(tokenAddress).safeTransfer(
-            msg.sender,
-            _contribute[msg.sender][tokenAddress]
-        );
+        uint256 claimAmount = _contribute[msg.sender][tokenAddress];
         _contribute[msg.sender][tokenAddress] = 0;
-        emit ClaimContribute(msg.sender,tokenAddress);
+        IERC20(tokenAddress).safeTransfer(msg.sender, claimAmount);
+
+        emit ClaimContribute(msg.sender, tokenAddress);
     }
 
     function poolV2BondsCallback(
@@ -134,9 +142,9 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         address oraclePool,
         address payer
     ) external override {
-        address pool = getPool(oraclePool,poolToken);
+        address pool = getPool(oraclePool, poolToken);
         require(
-             pool == msg.sender,
+            pool == msg.sender,
             "poolV2BondsCallback caller is not the pool contract"
         );
 
@@ -151,7 +159,7 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         address oraclePool,
         address payer
     ) external override {
-        address pool = getPool(oraclePool,poolToken);
+        address pool = getPool(oraclePool, poolToken);
         address debt = IPool(pool).debtToken();
         require(
             debt == msg.sender,
@@ -166,7 +174,7 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         address poolToken,
         address oraclePool,
         address payer
-    ) external override payable {
+    ) external payable override {
         IPoolFactory qilin = IPoolFactory(_factory);
         require(
             qilin.pools(poolToken, oraclePool) == msg.sender,
@@ -180,8 +188,7 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         } else {
             if (_routerPay) {
                 IERC20(poolToken).safeTransfer(msg.sender, amount);
-            }
-            else {
+            } else {
                 IERC20(poolToken).safeTransferFrom(payer, msg.sender, amount);
             }
         }
@@ -202,10 +209,10 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         IERC20(msg.sender).safeTransferFrom(payer, msg.sender, amount);
     }
 
-    function createPool(
-        address oracleAddress,
-        address poolToken
-    ) external override {
+    function createPool(address oracleAddress, address poolToken)
+        external
+        override
+    {
         IPoolFactory(_factory).createPool(oracleAddress, poolToken);
     }
 
@@ -213,16 +220,18 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         address oracleAddress,
         address poolToken,
         address user
-    ) external override view returns (uint256) {
-        address pool = getPool(oracleAddress,poolToken);
+    ) external view override returns (uint256) {
+        address pool = getPool(oracleAddress, poolToken);
         return IERC20(pool).balanceOf(user);
     }
 
-    function getLsPrice(
-        address oracleAddress,
-        address poolToken
-    ) external override view returns (uint256) {
-        address pool = getPool(oracleAddress,poolToken);
+    function getLsPrice(address oracleAddress, address poolToken)
+        external
+        view
+        override
+        returns (uint256)
+    {
+        address pool = getPool(oracleAddress, poolToken);
         return IPool(pool).lsTokenPrice();
     }
 
@@ -230,8 +239,8 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         address oracleAddress,
         address poolToken,
         uint256 amount
-    ) external override payable {
-        IPool pool = IPool(getPool(oracleAddress,poolToken));
+    ) external payable override {
+        IPool pool = IPool(getPool(oracleAddress, poolToken));
         pool.addLiquidity(msg.sender, amount);
     }
 
@@ -242,7 +251,7 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         uint256 bondsAmount,
         address receipt
     ) external override {
-        IPool pool = IPool(getPool(oracleAddress,poolToken));
+        IPool pool = IPool(getPool(oracleAddress, poolToken));
         pool.removeLiquidity(msg.sender, lsAmount, bondsAmount, receipt);
     }
 
@@ -254,31 +263,40 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         address firstUpper = _upRelation[user];
         contribute = positionAmount.mul(_ownerRate).div(E4);
         if (firstUpper == address(0)) {
-            
             _contribute[owner()][tokenAddress] = _contribute[owner()][
                 tokenAddress
             ].add(contribute);
-            emit AddContribute(owner(),tokenAddress,contribute);
+            emit AddContribute(owner(), tokenAddress, contribute);
             return contribute;
         }
-        uint256 userContribute = positionAmount.mul(_ownerRate - _contributeRate).div(E4);
+        uint256 userContribute = positionAmount
+            .mul(_ownerRate - _contributeRate)
+            .div(E4);
 
-        uint256 secondCointribute = contribute.sub(userContribute).mul(_secondUpperRate).div(E4);
-        _contribute[owner()][tokenAddress] = _contribute[owner()][
-            tokenAddress
-        ].add(secondCointribute);
-        emit AddContribute(owner(),tokenAddress,secondCointribute);
-
+        uint256 secondCointribute = contribute
+            .sub(userContribute)
+            .mul(_secondUpperRate)
+            .div(E4);
+        _contribute[owner()][tokenAddress] = _contribute[owner()][tokenAddress]
+            .add(secondCointribute);
+        emit AddContribute(owner(), tokenAddress, secondCointribute);
 
         _contribute[firstUpper][tokenAddress] = _contribute[firstUpper][
             tokenAddress
         ].add(contribute.sub(secondCointribute).sub(userContribute));
-        emit AddContribute(firstUpper,tokenAddress,contribute.sub(secondCointribute).sub(userContribute));
-        _contribute[user][tokenAddress] = _contribute[user][tokenAddress].add(userContribute);
-        emit AddContribute(user,tokenAddress,userContribute);
+        emit AddContribute(
+            firstUpper,
+            tokenAddress,
+            contribute.sub(secondCointribute).sub(userContribute)
+        );
+        _contribute[user][tokenAddress] = _contribute[user][tokenAddress].add(
+            userContribute
+        );
+        emit AddContribute(user, tokenAddress, userContribute);
 
         return contribute;
     }
+
     function openPreBill(
         address oracleAddress,
         address poolToken,
@@ -286,18 +304,25 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         uint16 leverage,
         uint256 position,
         address excutorAddress,
-        strategy[] memory strategyDatas) external override payable {
-        address poolAddress = getPool(oracleAddress,poolToken);
+        strategy[] memory strategyDatas
+    ) external payable override {
+        address poolAddress = getPool(oracleAddress, poolToken);
         _tokenId++;
-        IERC20(poolToken).safeTransferFrom(
-            msg.sender,
-            address(this),
-            position
-        );
+        IERC20(poolToken).safeTransferFrom(msg.sender, address(this), position);
         if (excutorAddress != address(0)) {
-            require(IExecutorManager(_legalExecutor).IsLegalExecutor(excutorAddress) == true,"only legal executor can be executor");
-            require(msg.value >= _execPreBillAmount,"exec value is not enough");
-            (bool success, ) = excutorAddress.call{value: msg.value}(new bytes(0));
+            require(
+                IExecutorManager(_legalExecutor).IsLegalExecutor(
+                    excutorAddress
+                ) == true,
+                "only legal executor can be executor"
+            );
+            require(
+                msg.value >= _execPreBillAmount,
+                "exec value is not enough"
+            );
+            (bool success, ) = excutorAddress.call{value: msg.value}(
+                new bytes(0)
+            );
             require(success, "ETH transfer failed");
         }
         preBill memory tempBillDate = preBill(
@@ -310,62 +335,114 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         );
         _preBillData[_tokenId] = tempBillDate;
 
-        emit OpenPreBill(msg.sender,_tokenId,poolAddress,direction,leverage,position,excutorAddress);
+        emit OpenPreBill(
+            msg.sender,
+            _tokenId,
+            poolAddress,
+            direction,
+            leverage,
+            position,
+            excutorAddress
+        );
 
-        for (uint i = 0; i < strategyDatas.length; i++) {
+        for (uint256 i = 0; i < strategyDatas.length; i++) {
             if (strategyDatas[i].strategyType != 0) {
-                emit StrategySheet(_tokenId,strategyDatas[i].strategyType,strategyDatas[i].value);
+                emit StrategySheet(
+                    _tokenId,
+                    strategyDatas[i].strategyType,
+                    strategyDatas[i].value
+                );
             }
         }
     }
 
-    function setStrategy(uint32 tokenId,uint8 billType,strategy[] memory strategyDatas) public {
+    function setStrategy(
+        uint32 tokenId,
+        uint8 billType,
+        strategy[] memory strategyDatas
+    ) public {
         if (billType == 1) {
             preBill memory tempBillDate = _preBillData[tokenId];
-            require(msg.sender == tempBillDate.owner,"only owner can set strategy");
+            require(
+                msg.sender == tempBillDate.owner,
+                "only owner can set strategy"
+            );
         } else {
             tokenDate memory tempTokenDate = _tokenData[tokenId];
-            require(msg.sender == tempTokenDate.owner,"only owner can set strategy");
+            require(
+                msg.sender == tempTokenDate.owner,
+                "only owner can set strategy"
+            );
         }
 
-        for (uint i = 0; i < strategyDatas.length; i++) {
+        for (uint256 i = 0; i < strategyDatas.length; i++) {
             if (strategyDatas[i].strategyType != 0) {
-                emit StrategySheet(tokenId,strategyDatas[i].strategyType,strategyDatas[i].value);
+                emit StrategySheet(
+                    tokenId,
+                    strategyDatas[i].strategyType,
+                    strategyDatas[i].value
+                );
             }
         }
-
     }
 
-    function setExecutor(uint32 tokenId,uint8 billType,address executor) external override payable {
-        require(billType == 1 || billType == 2,"billType is invalid");
-        require(IExecutorManager(_legalExecutor).IsLegalExecutor(executor) == true,"only legal executor can be executor");
+    function setExecutor(
+        uint32 tokenId,
+        uint8 billType,
+        address executor
+    ) external payable override {
+        require(billType == 1 || billType == 2, "billType is invalid");
+        require(
+            IExecutorManager(_legalExecutor).IsLegalExecutor(executor) == true,
+            "only legal executor can be executor"
+        );
         if (billType == 1) {
             preBill memory tempBillDate = _preBillData[tokenId];
-            require(msg.sender == tempBillDate.owner,"only owner can set executor");
+            require(
+                msg.sender == tempBillDate.owner,
+                "only owner can set executor"
+            );
             tempBillDate.executor = executor;
             _preBillData[tokenId] = tempBillDate;
-            require(msg.value >= _execPreBillAmount,"exec value is not enough");
+            require(
+                msg.value >= _execPreBillAmount,
+                "exec value is not enough"
+            );
             (bool success, ) = executor.call{value: msg.value}(new bytes(0));
             require(success, "ETH transfer failed");
         } else {
             tokenDate memory tempTokenDate = _tokenData[tokenId];
-            require(msg.sender == tempTokenDate.owner,"only owner can set executor");
-            require(msg.value >= _execPositionAmount,"exec value is not enough");
+            require(
+                msg.sender == tempTokenDate.owner,
+                "only owner can set executor"
+            );
+            require(
+                msg.value >= _execPositionAmount,
+                "exec value is not enough"
+            );
             tempTokenDate.executor = executor;
             _tokenData[tokenId] = tempTokenDate;
 
             (bool success, ) = executor.call{value: msg.value}(new bytes(0));
             require(success, "ETH transfer failed");
         }
-        emit SetExecutor(tokenId,executor);
+        emit SetExecutor(tokenId, executor);
     }
 
     function execPreBill(uint32 tokenId) external override routerPay {
         preBill memory tempBillDate = _preBillData[tokenId];
-        require(msg.sender == tempBillDate.owner || msg.sender == tempBillDate.executor,"not owner or executor to exec the pre bill");
+        require(
+            msg.sender == tempBillDate.owner ||
+                msg.sender == tempBillDate.executor,
+            "not owner or executor to exec the pre bill"
+        );
         IPool pool = IPool(tempBillDate.poolAddress);
 
-        uint256 contribute = allocContribute(msg.sender, pool._poolToken(), tempBillDate.position.mul(tempBillDate.leverage));
+        uint256 contribute = allocContribute(
+            msg.sender,
+            pool._poolToken(),
+            tempBillDate.position.mul(tempBillDate.leverage)
+        );
         uint32 positionId = pool.openPosition(
             tempBillDate.owner,
             tempBillDate.direction,
@@ -381,15 +458,24 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         _tokenData[tokenId] = tempTokenDate;
 
         delete _preBillData[tokenId];
-        emit ExecPreBill(tokenId,msg.sender);
-        emit TokenCreate(tokenId, address(pool), tempBillDate.owner, positionId,address(0));
+        emit ExecPreBill(tokenId, msg.sender);
+        emit TokenCreate(
+            tokenId,
+            address(pool),
+            tempBillDate.owner,
+            positionId,
+            address(0)
+        );
     }
 
     function canclePrebill(uint32 tokenId) public {
         preBill memory tempBillDate = _preBillData[tokenId];
-        require(msg.sender == tempBillDate.owner,"only owner can cancle bill");
+        require(msg.sender == tempBillDate.owner, "only owner can cancle bill");
         IPool pool = IPool(tempBillDate.poolAddress);
-        IERC20(pool._poolToken()).safeTransfer(msg.sender, tempBillDate.position);
+        IERC20(pool._poolToken()).safeTransfer(
+            msg.sender,
+            tempBillDate.position
+        );
         delete _preBillData[tokenId];
         emit CancleBill(tokenId);
     }
@@ -402,11 +488,15 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         uint256 position,
         address excutorAddress,
         strategy[] memory strategyDatas
-    ) external override payable {
-        IPool pool = IPool(getPool(oracleAddress,poolToken));
+    ) external payable override {
+        IPool pool = IPool(getPool(oracleAddress, poolToken));
         _tokenId++;
-        uint256 contribute = allocContribute(msg.sender, poolToken, position.mul(leverage));
-        
+        uint256 contribute = allocContribute(
+            msg.sender,
+            poolToken,
+            position.mul(leverage)
+        );
+
         IERC20(poolToken).safeTransferFrom(
             msg.sender,
             address(this),
@@ -419,9 +509,19 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
             position.sub(contribute)
         );
         if (excutorAddress != address(0)) {
-            require(IExecutorManager(_legalExecutor).IsLegalExecutor(excutorAddress) == true,"only legal executor can be executor");
-            require(msg.value >= _execPositionAmount,"exec value is not enough");
-            (bool success, ) = excutorAddress.call{value: msg.value}(new bytes(0));
+            require(
+                IExecutorManager(_legalExecutor).IsLegalExecutor(
+                    excutorAddress
+                ) == true,
+                "only legal executor can be executor"
+            );
+            require(
+                msg.value >= _execPositionAmount,
+                "exec value is not enough"
+            );
+            (bool success, ) = excutorAddress.call{value: msg.value}(
+                new bytes(0)
+            );
             require(success, "ETH transfer failed");
         }
         tokenDate memory tempTokenDate = tokenDate(
@@ -432,16 +532,30 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         );
         _tokenData[_tokenId] = tempTokenDate;
 
-        emit TokenCreate(_tokenId, address(pool), msg.sender, positionId,excutorAddress);
+        emit TokenCreate(
+            _tokenId,
+            address(pool),
+            msg.sender,
+            positionId,
+            excutorAddress
+        );
 
-        for (uint i = 0; i < strategyDatas.length; i++) {
+        for (uint256 i = 0; i < strategyDatas.length; i++) {
             if (strategyDatas[i].strategyType != 0) {
-                emit StrategySheet(_tokenId,strategyDatas[i].strategyType,strategyDatas[i].value);
+                emit StrategySheet(
+                    _tokenId,
+                    strategyDatas[i].strategyType,
+                    strategyDatas[i].value
+                );
             }
         }
     }
 
-    function addMargin(uint32 tokenId, uint256 margin) external payable override {
+    function addMargin(uint32 tokenId, uint256 margin)
+        external
+        payable
+        override
+    {
         tokenDate memory tempTokenDate = _tokenData[tokenId];
         require(
             tempTokenDate.owner == msg.sender,
@@ -457,7 +571,8 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
     function closeAgentPosition(uint32 tokenId) external override {
         tokenDate memory tempTokenDate = _tokenData[tokenId];
         require(
-            tempTokenDate.owner == msg.sender || tempTokenDate.executor == msg.sender,
+            tempTokenDate.owner == msg.sender ||
+                tempTokenDate.executor == msg.sender,
             "token owner not match msg.sender"
         );
 
@@ -479,7 +594,11 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         delete _tokenData[tokenId];
     }
 
-    function liquidateByPool(address poolAddress, uint32 positionId, address receipt) external override  {
+    function liquidateByPool(
+        address poolAddress,
+        uint32 positionId,
+        address receipt
+    ) external override {
         IPool(poolAddress).liquidate(msg.sender, positionId, receipt);
     }
 
@@ -488,16 +607,17 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
         address poolToken,
         uint256 amount,
         address receipt
-    ) external override payable {
-        address pool = getPool(oracleAddress,poolToken);
+    ) external payable override {
+        address pool = getPool(oracleAddress, poolToken);
         address debtToken = IPool(pool).debtToken();
         IDebt(debtToken).repayLoan(msg.sender, receipt, amount);
     }
 
-    function getPool(
-        address oracleAddress,
-        address poolToken
-    ) public view returns (address) {
+    function getPool(address oracleAddress, address poolToken)
+        public
+        view
+        returns (address)
+    {
         address pool = IPoolFactory(_factory).pools(poolToken, oracleAddress);
         require(pool != address(0), "non-exist pool");
         return pool;
@@ -514,5 +634,4 @@ contract Router is IRouter, IPoolCallback, Multicall, Ownable {
             tempTokenDate.positionId
         );
     }
-
 }
