@@ -5,17 +5,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
-import "./libraries/StrConcat.sol";
 import "./libraries/Price.sol";
 import "./libraries/BasicMaths.sol";
-import "./interfaces/IPoolFactory.sol";
 import "./interfaces/IPool.sol";
 import "./interfaces/ISystemSettings.sol";
 import "./interfaces/IPoolCallback.sol";
 import "./interfaces/IWETH.sol";
 import "./interfaces/IDeployer02.sol";
 import "./interfaces/IDebt.sol";
-import "@chainlink/contracts/src/v0.5/interfaces/AggregatorV2V3Interface.sol";
+import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV2V3Interface.sol";
 
 contract Pool is ERC20, IPool {
     using SafeMath for uint256;
@@ -23,7 +21,7 @@ contract Pool is ERC20, IPool {
     using BasicMaths for bool;
     using SafeERC20 for IERC20;
 
-    address public override  _poolToken;
+    address public override _poolToken;
     address public _settings;
     address public override debtToken;
 
@@ -45,7 +43,7 @@ contract Pool is ERC20, IPool {
     bool public unlocked = true;
 
     modifier lock() {
-        require(unlocked, 'LOK');
+        require(unlocked, "LOK");
         unlocked = false;
         _;
         unlocked = true;
@@ -66,15 +64,24 @@ contract Pool is ERC20, IPool {
             ? StandardDecimal - ERC20(poolToken_).decimals()
             : 0;
         _oraclePool = oracleAddress_;
-        debtToken = IDeployer02(ISystemSettings(setting).deployer02()).deploy(address(this), poolToken_, setting, symbol);
+        debtToken = IDeployer02(ISystemSettings(setting).deployer02()).deploy(
+            address(this),
+            poolToken_,
+            setting,
+            symbol
+        );
         unlocked = true;
     }
 
-    function getPrice() public view returns(uint256) {
-        uint price = uint(AggregatorV2V3Interface(_oraclePool).latestAnswer());
-        uint decimals = StandardDecimal.sub(uint(AggregatorV2V3Interface(_oraclePool).decimals()));
+    function getPrice() public view returns (uint256) {
+        uint256 price = uint256(
+            AggregatorV2V3Interface(_oraclePool).latestAnswer()
+        );
+        uint256 decimals = StandardDecimal.sub(
+            uint256(AggregatorV2V3Interface(_oraclePool).decimals())
+        );
 
-        return price.mul(10 ** decimals);
+        return price.mul(10**decimals);
     }
 
     function lsTokenPrice() external view override returns (uint256) {
@@ -126,10 +133,15 @@ contract Pool is ERC20, IPool {
 
         _mint(user, lsTokenAmount);
         _liquidityPool = _liquidityPool.add(amount);
-        _lsAvgPrice = Price.calLsAvgPrice(_lsAvgPrice, lsTotalSupply, amount, lsTokenAmount);
+        _lsAvgPrice = Price.calLsAvgPrice(
+            _lsAvgPrice,
+            lsTotalSupply,
+            amount,
+            lsTokenAmount
+        );
 
         IDebt debt = IDebt(debtToken);
-        uint bonds;
+        uint256 bonds;
         if (lsTotalSupply > 0) {
             bonds = debt.bondsLeft().mul(lsTokenAmount) / lsTotalSupply;
             if (bonds > 0) {
@@ -140,7 +152,12 @@ contract Pool is ERC20, IPool {
         emit AddLiquidity(user, amount, lsTokenAmount, bonds);
     }
 
-    function removeLiquidity(address user, uint256 amount, uint256 bondsAmount, address receipt) external override lock {
+    function removeLiquidity(
+        address user,
+        uint256 amount,
+        uint256 bondsAmount,
+        address receipt
+    ) external override lock {
         ISystemSettings settings = ISystemSettings(_settings);
         settings.requireSystemActive();
         rebase();
@@ -183,8 +200,11 @@ contract Pool is ERC20, IPool {
         uint256 nakedPosition = Price
             .mulPrice(_totalSizeLong.diff(_totalSizeShort), getPrice())
             .div(10**_poolDecimalDiff);
-        require(settings.mulLiquidityCoefficient(nakedPosition) <= _liquidityPool.sub2Zero(poolTokenAmount),
-            "liquidity less than naked positions");
+        require(
+            settings.mulLiquidityCoefficient(nakedPosition) <=
+                _liquidityPool.sub2Zero(poolTokenAmount),
+            "liquidity less than naked positions"
+        );
 
         uint256 balanceBefore = ls.balanceOf(address(this));
         IPoolCallback(msg.sender).poolV2RemoveCallback(
@@ -194,8 +214,7 @@ contract Pool is ERC20, IPool {
             user
         );
         require(
-            ls.balanceOf(address(this)) >=
-                balanceBefore.add(amount),
+            ls.balanceOf(address(this)) >= balanceBefore.add(amount),
             "LP Token is not enough"
         );
 
@@ -317,10 +336,10 @@ contract Pool is ERC20, IPool {
         emit AddMargin(user, margin, positionId);
     }
 
-    function closePosition(
-        address receipt,
-        uint32 positionId
-    ) external override {
+    function closePosition(address receipt, uint32 positionId)
+        external
+        override
+    {
         ISystemSettings setting = ISystemSettings(_settings);
         setting.requireSystemActive();
 
@@ -371,7 +390,8 @@ contract Pool is ERC20, IPool {
         );
 
         if (transferOut < p.margin) {
-            uint256 debtRepay = setting.calDebtRepay(p.margin - transferOut,
+            uint256 debtRepay = setting.calDebtRepay(
+                p.margin - transferOut,
                 IDebt(debtToken).totalDebt(),
                 _liquidityPool
             );
@@ -381,19 +401,18 @@ contract Pool is ERC20, IPool {
             }
 
             debtChange = int256(-debtRepay);
-
         } else {
-
             uint256 debtIssue;
             if (_liquidityPool.add(p.margin) < transferOut) {
                 debtIssue = transferOut - p.margin;
-            }
-            else {
+            } else {
                 uint256 lsPrice = Price.lsTokenPrice(
                     IERC20(address(this)).totalSupply(),
-                    _liquidityPool.add(p.margin) - transferOut);
+                    _liquidityPool.add(p.margin) - transferOut
+                );
 
-                debtIssue = setting.calDebtIssue(transferOut - p.margin,
+                debtIssue = setting.calDebtIssue(
+                    transferOut - p.margin,
                     _lsAvgPrice,
                     lsPrice
                 );
@@ -412,9 +431,13 @@ contract Pool is ERC20, IPool {
         }
 
         if (p.margin >= transferOut.add(Price.calRepay(debtChange))) {
-            _liquidityPool = _liquidityPool.add(p.margin.sub(transferOut.add(Price.calRepay(debtChange))));
+            _liquidityPool = _liquidityPool.add(
+                p.margin.sub(transferOut.add(Price.calRepay(debtChange)))
+            );
         } else {
-            _liquidityPool = _liquidityPool.sub(transferOut.add(Price.calRepay(debtChange)).sub(p.margin));
+            _liquidityPool = _liquidityPool.sub(
+                transferOut.add(Price.calRepay(debtChange)).sub(p.margin)
+            );
         }
 
         _mintLsByPoolToken(setting.mulProtocolFee(fundingFee.add(fee)));
@@ -442,7 +465,10 @@ contract Pool is ERC20, IPool {
 
         ISystemSettings setting = ISystemSettings(_settings);
         setting.requireSystemActive();
-        require(IERC20(address(this)).balanceOf(user) >= setting.liqLsRequire(), "Not Meet Min Ls Amount");
+        require(
+            IERC20(address(this)).balanceOf(user) >= setting.liqLsRequire(),
+            "Not Meet Min Ls Amount"
+        );
 
         rebase();
 
@@ -480,15 +506,20 @@ contract Pool is ERC20, IPool {
         bool isProfit = (liqPrice >= p.openPrice) == (p.direction == 1);
 
         require(
-            isProfit.addOrSub2Zero(p.margin, pnl) < fee.add(fundingFee).add(setting.mulMarginRatio(p.margin)),
+            isProfit.addOrSub2Zero(p.margin, pnl) <
+                fee.add(fundingFee).add(setting.mulMarginRatio(p.margin)),
             "Position Cannot Be Liquidated by Not Meet MarginRatio"
         );
 
-        uint256 liquidateFee = setting.mulLiquidationFee(p.margin, block.number - p.openBlock);
+        uint256 liquidateFee = setting.mulLiquidationFee(
+            p.margin,
+            block.number - p.openBlock
+        );
         uint256 liqProtocolFee = setting.mulLiqProtocolFee(liquidateFee);
         liquidateFee = liquidateFee.sub(liqProtocolFee);
 
-        uint256 debtRepay = setting.calDebtRepay(p.margin.sub(liquidateFee),
+        uint256 debtRepay = setting.calDebtRepay(
+            p.margin.sub(liquidateFee),
             IDebt(debtToken).totalDebt(),
             _liquidityPool
         );
@@ -496,7 +527,9 @@ contract Pool is ERC20, IPool {
             IERC20(_poolToken).safeTransfer(debtToken, debtRepay);
         }
 
-        _liquidityPool = _liquidityPool.add(p.margin.sub(liquidateFee).sub(debtRepay));
+        _liquidityPool = _liquidityPool.add(
+            p.margin.sub(liquidateFee).sub(debtRepay)
+        );
         IERC20(_poolToken).safeTransfer(receipt, liquidateFee);
         delete _positions[positionId];
 
@@ -563,16 +596,10 @@ contract Pool is ERC20, IPool {
             _rebaseAccumulatedShort = _rebaseAccumulatedShort.add(rebaseDelta);
         }
         _lastRebaseBlock = currBlock;
-        emit Rebase(
-            _rebaseAccumulatedLong,
-            _rebaseAccumulatedShort
-        );
+        emit Rebase(_rebaseAccumulatedLong, _rebaseAccumulatedShort);
     }
 
-    function exit(
-        address receipt,
-        uint32 positionId
-    ) external override {
+    function exit(address receipt, uint32 positionId) external override {
         ISystemSettings(_settings).requireSystemSuspend();
 
         Position memory p = _positions[positionId];

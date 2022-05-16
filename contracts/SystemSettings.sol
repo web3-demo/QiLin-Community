@@ -33,7 +33,7 @@ contract SystemSettings is ISystemSettings, Ownable {
 
     uint256 private _liqLsRequire;
     uint256 private _minHoldingPeriod;
-    bool    private _deviation;
+    bool private _deviation;
 
     uint256 private constant E4 = 1e4;
     uint256 private constant E18 = 1e18;
@@ -132,22 +132,22 @@ contract SystemSettings is ISystemSettings, Ownable {
 
         uint256 liqRatio;
         if (poolSetting.owner == address(0)) {
-            if (liqFeeBase == liqFeeMax) {
-                return liqFeeBase.mul(margin) / E4;
-            }
-
-            liqRatio = deltaBlock.mul(liqFeeMax.sub(liqFeeBase)) / liqFeeCoefficient + liqFeeBase;
+            liqRatio =
+                deltaBlock.mul(liqFeeMax.sub(liqFeeBase)) /
+                liqFeeCoefficient +
+                liqFeeBase;
             if (liqRatio < liqFeeMax) {
                 return liqRatio.mul(margin) / E4;
             } else {
                 return liqFeeMax.mul(margin) / E4;
             }
         } else {
-            if (poolSetting.liqFeeBase == poolSetting.liqFeeMax) {
-                return poolSetting.liqFeeBase.mul(margin) / E4;
-            }
-
-            liqRatio = deltaBlock.mul(poolSetting.liqFeeMax.sub(poolSetting.liqFeeBase)) / poolSetting.liqFeeCoefficient + poolSetting.liqFeeBase;
+            liqRatio =
+                deltaBlock.mul(
+                    poolSetting.liqFeeMax.sub(poolSetting.liqFeeBase)
+                ) /
+                poolSetting.liqFeeCoefficient +
+                poolSetting.liqFeeBase;
             if (liqRatio < poolSetting.liqFeeMax) {
                 return liqRatio.mul(margin) / E4;
             } else {
@@ -222,9 +222,16 @@ contract SystemSettings is ISystemSettings, Ownable {
     ) external view override returns (uint256) {
         PoolSetting memory poolSetting = _poolSettings[msg.sender];
         if (poolSetting.owner == address(0)) {
-            return rebaseSizeXBlockDelta.mul(E18).div(rebaseCoefficient).div(imbalanceSize);
+            return
+                rebaseSizeXBlockDelta.mul(E18).div(rebaseCoefficient).div(
+                    imbalanceSize
+                );
         } else {
-            return rebaseSizeXBlockDelta.mul(E18).div(poolSetting.rebaseCoefficient).div(imbalanceSize);
+            return
+                rebaseSizeXBlockDelta
+                    .mul(E18)
+                    .div(poolSetting.rebaseCoefficient)
+                    .div(imbalanceSize);
         }
     }
 
@@ -240,13 +247,13 @@ contract SystemSettings is ISystemSettings, Ownable {
         uint256 deviationResult;
         PoolSetting memory poolSetting = _poolSettings[msg.sender];
         if (poolSetting.owner == address(0)) {
-            deviationResult = (D.pow() / E18).mul(
-                priceDeviationCoefficient
-            ) / E4;
+            deviationResult =
+                (D.pow() / E18).mul(priceDeviationCoefficient) /
+                E4;
         } else {
-            deviationResult = (D.pow() / E18).mul(
-                poolSetting.priceDeviationCoefficient
-            ) / E4;
+            deviationResult =
+                (D.pow() / E18).mul(poolSetting.priceDeviationCoefficient) /
+                E4;
         }
 
         // Maximum deviation is 1e18
@@ -259,7 +266,6 @@ contract SystemSettings is ISystemSettings, Ownable {
         uint256 totalDebtWithInterest,
         uint256 totalLiquidity
     ) external view override returns (uint256 repay) {
-
         uint256 minRepay;
         uint256 maxRepay;
         PoolSetting memory poolSetting = _poolSettings[msg.sender];
@@ -293,7 +299,6 @@ contract SystemSettings is ISystemSettings, Ownable {
         uint256 lsAvgPrice,
         uint256 lsPrice
     ) external view override returns (uint256) {
-
         PoolSetting memory poolSetting = _poolSettings[msg.sender];
         if (poolSetting.owner == address(0)) {
             if (lsPrice.mul(E4) >= lsAvgPrice.mul(debtStart)) {
@@ -316,9 +321,12 @@ contract SystemSettings is ISystemSettings, Ownable {
         return lsAvgPrice.sub(lsPrice).pow().mul(tdPnl) / lsAvgPrice.pow();
     }
 
-    function mulInterestFromDebt(
-        uint256 amount
-    ) external view override returns (uint256) {
+    function mulInterestFromDebt(uint256 amount)
+        external
+        view
+        override
+        returns (uint256)
+    {
         uint256 interestRateFromDebt = _debtSettings[msg.sender];
         if (interestRateFromDebt == 0) {
             return amount.mul(interestRate) / E4;
@@ -327,9 +335,12 @@ contract SystemSettings is ISystemSettings, Ownable {
         }
     }
 
-    function divInterestFromDebt(
-        uint256 amount
-    ) external view override returns (uint256) {
+    function divInterestFromDebt(uint256 amount)
+        external
+        view
+        override
+        returns (uint256)
+    {
         uint256 interestRateFromDebt = _debtSettings[msg.sender];
         if (interestRateFromDebt == 0) {
             return amount.mul(E4) / interestRate;
@@ -338,9 +349,12 @@ contract SystemSettings is ISystemSettings, Ownable {
         }
     }
 
-    function mulLiquidityCoefficient(
-        uint256 nakedPositions
-    ) external view override returns (uint256) {
+    function mulLiquidityCoefficient(uint256 nakedPositions)
+        external
+        view
+        override
+        returns (uint256)
+    {
         PoolSetting memory poolSetting = _poolSettings[msg.sender];
         if (poolSetting.owner == address(0)) {
             return nakedPositions.mul(E4).div(liquidityCoefficient);
@@ -389,8 +403,14 @@ contract SystemSettings is ISystemSettings, Ownable {
         emit SetSystemParam(systemParam.LiqFeeMax, liqFeeMax_);
     }
 
-    function setLiqFeeCoefficient(uint256 liqFeeCoefficient_) external onlyOwner {
-        require(liqFeeCoefficient_ > 0 && liqFeeCoefficient_ <= 576000, "over range");
+    function setLiqFeeCoefficient(uint256 liqFeeCoefficient_)
+        external
+        onlyOwner
+    {
+        require(
+            liqFeeCoefficient_ > 0 && liqFeeCoefficient_ <= 576000,
+            "over range"
+        );
         liqFeeCoefficient = liqFeeCoefficient_;
         emit SetSystemParam(systemParam.LiqFeeCoefficient, liqFeeCoefficient_);
     }
@@ -414,7 +434,10 @@ contract SystemSettings is ISystemSettings, Ownable {
         external
         onlyOwner
     {
-        require(rebaseCoefficient_ > 0 && rebaseCoefficient_ <= 5760000, "over range");
+        require(
+            rebaseCoefficient_ > 0 && rebaseCoefficient_ <= 5760000,
+            "over range"
+        );
         rebaseCoefficient = rebaseCoefficient_;
         emit SetSystemParam(systemParam.RebaseCoefficient, rebaseCoefficient_);
     }
@@ -443,83 +466,50 @@ contract SystemSettings is ISystemSettings, Ownable {
         );
     }
 
-    function setMinHoldingPeriod(uint256 minHoldingPeriod_)
-        external
-        onlyOwner
-    {
+    function setMinHoldingPeriod(uint256 minHoldingPeriod_) external onlyOwner {
         require(minHoldingPeriod_ <= 5760, "over range");
         _minHoldingPeriod = minHoldingPeriod_;
-        emit SetSystemParam(
-            systemParam.MinHoldingPeriod,
-            minHoldingPeriod_
-        );
+        emit SetSystemParam(systemParam.MinHoldingPeriod, minHoldingPeriod_);
     }
 
-    function setDebtStart(uint256 debtStart_)
-        external
-        onlyOwner
-    {
+    function setDebtStart(uint256 debtStart_) external onlyOwner {
         require(debtStart_ <= E4, "over range");
         debtStart = debtStart_;
-        emit SetSystemParam(
-            systemParam.DebtStart,
-            debtStart_
-        );
+        emit SetSystemParam(systemParam.DebtStart, debtStart_);
     }
 
-    function setDebtAll(uint256 debtAll_)
-        external
-        onlyOwner
-    {
+    function setDebtAll(uint256 debtAll_) external onlyOwner {
         require(debtAll_ <= E4, "over range");
         debtAll = debtAll_;
-        emit SetSystemParam(
-            systemParam.DebtAll,
-            debtAll_
-        );
+        emit SetSystemParam(systemParam.DebtAll, debtAll_);
     }
 
-    function setMinDebtRepay(uint256 minDebtRepay_)
-        external
-        onlyOwner
-    {
+    function setMinDebtRepay(uint256 minDebtRepay_) external onlyOwner {
         require(minDebtRepay_ <= E4, "over range");
         minDebtRepay = minDebtRepay_;
-        emit SetSystemParam(
-            systemParam.MinDebtRepay,
-            minDebtRepay_
-        );
+        emit SetSystemParam(systemParam.MinDebtRepay, minDebtRepay_);
     }
 
-    function setMaxDebtRepay(uint256 maxDebtRepay_)
-        external
-        onlyOwner
-    {
+    function setMaxDebtRepay(uint256 maxDebtRepay_) external onlyOwner {
         require(maxDebtRepay_ <= E4, "over range");
         maxDebtRepay = maxDebtRepay_;
-        emit SetSystemParam(
-            systemParam.MaxDebtRepay,
-            maxDebtRepay_
-        );
+        emit SetSystemParam(systemParam.MaxDebtRepay, maxDebtRepay_);
     }
 
-    function setInterestRate(uint256 interestRate_)
-        external
-        onlyOwner
-    {
-        require(interestRate_ >= E4 && interestRate_ <= 2*E4, "over range");
+    function setInterestRate(uint256 interestRate_) external onlyOwner {
+        require(interestRate_ >= E4 && interestRate_ <= 2 * E4, "over range");
         interestRate = interestRate_;
-        emit SetSystemParam(
-            systemParam.InterestRate,
-            interestRate_
-        );
+        emit SetSystemParam(systemParam.InterestRate, interestRate_);
     }
 
     function setLiquidityCoefficient(uint256 liquidityCoefficient_)
         external
         onlyOwner
     {
-        require(liquidityCoefficient_ > 0 && liquidityCoefficient_ <= 1e6, "over range");
+        require(
+            liquidityCoefficient_ > 0 && liquidityCoefficient_ <= 1e6,
+            "over range"
+        );
         liquidityCoefficient = liquidityCoefficient_;
         emit SetSystemParam(
             systemParam.LiquidityCoefficient,
@@ -534,105 +524,196 @@ contract SystemSettings is ISystemSettings, Ownable {
 
     /*--------------------------------------------------------------------------------------------------*/
 
-    function setMarginRatioByPool(address pool, uint256 marginRatio_) external onlyPoolOwner(pool) {
+    function setMarginRatioByPool(address pool, uint256 marginRatio_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(marginRatio_ <= E4, "over range");
         _poolSettings[pool].marginRatio = marginRatio_;
         emit SetPoolParam(pool, systemParam.MarginRatio, marginRatio_);
     }
 
-    function setClosingFeeByPool(address pool, uint256 closingFee_) external onlyPoolOwner(pool) {
+    function setClosingFeeByPool(address pool, uint256 closingFee_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(closingFee_ <= E4, "over range");
         _poolSettings[pool].closingFee = closingFee_;
         emit SetPoolParam(pool, systemParam.ClosingFee, closingFee_);
     }
 
-    function setLiqFeeBaseByPool(address pool, uint256 liqFeeBase_) external onlyPoolOwner(pool) {
+    function setLiqFeeBaseByPool(address pool, uint256 liqFeeBase_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(liqFeeBase_ <= E4, "over range");
-        require(_poolSettings[pool].liqFeeMax > liqFeeBase_, "liqFeeMax must > liqFeeBase");
+        require(
+            _poolSettings[pool].liqFeeMax > liqFeeBase_,
+            "liqFeeMax must > liqFeeBase"
+        );
         _poolSettings[pool].liqFeeBase = liqFeeBase_;
         emit SetPoolParam(pool, systemParam.LiqFeeBase, liqFeeBase_);
     }
 
-    function setLiqFeeMaxByPool(address pool, uint256 liqFeeMax_) external onlyPoolOwner(pool) {
+    function setLiqFeeMaxByPool(address pool, uint256 liqFeeMax_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(liqFeeMax_ <= E4, "over range");
-        require(liqFeeMax_ > _poolSettings[pool].liqFeeBase, "liqFeeMax must > liqFeeBase");
+        require(
+            liqFeeMax_ > _poolSettings[pool].liqFeeBase,
+            "liqFeeMax must > liqFeeBase"
+        );
         _poolSettings[pool].liqFeeMax = liqFeeMax_;
         emit SetPoolParam(pool, systemParam.LiqFeeMax, liqFeeMax_);
     }
 
-    function setLiqFeeCoefficientByPool(address pool, uint256 liqFeeCoefficient_) external onlyPoolOwner(pool) {
-        require(liqFeeCoefficient_ > 0 && liqFeeCoefficient_ <= 576000, "over range");
+    function setLiqFeeCoefficientByPool(
+        address pool,
+        uint256 liqFeeCoefficient_
+    ) external onlyPoolOwner(pool) {
+        require(
+            liqFeeCoefficient_ > 0 && liqFeeCoefficient_ <= 576000,
+            "over range"
+        );
         _poolSettings[pool].liqFeeCoefficient = liqFeeCoefficient_;
-        emit SetPoolParam(pool, systemParam.LiqFeeCoefficient, liqFeeCoefficient_);
+        emit SetPoolParam(
+            pool,
+            systemParam.LiqFeeCoefficient,
+            liqFeeCoefficient_
+        );
     }
 
-    function setLiqLsRequireByPool(address pool, uint256 liqLsRequire_) external onlyPoolOwner(pool) {
+    function setLiqLsRequireByPool(address pool, uint256 liqLsRequire_)
+        external
+        onlyPoolOwner(pool)
+    {
         _poolSettings[pool].liqLsRequire = liqLsRequire_;
         emit SetPoolParam(pool, systemParam.LiqLsRequire, liqLsRequire_);
     }
 
-    function setRebaseCoefficientByPool(address pool, uint256 rebaseCoefficient_) external onlyPoolOwner(pool) {
-        require(rebaseCoefficient_ > 0 && rebaseCoefficient_ <= 5760000, "over range");
+    function setRebaseCoefficientByPool(
+        address pool,
+        uint256 rebaseCoefficient_
+    ) external onlyPoolOwner(pool) {
+        require(
+            rebaseCoefficient_ > 0 && rebaseCoefficient_ <= 5760000,
+            "over range"
+        );
         _poolSettings[pool].rebaseCoefficient = rebaseCoefficient_;
-        emit SetPoolParam(pool, systemParam.RebaseCoefficient, rebaseCoefficient_);
+        emit SetPoolParam(
+            pool,
+            systemParam.RebaseCoefficient,
+            rebaseCoefficient_
+        );
     }
 
-    function setImbalanceThresholdByPool(address pool, uint256 imbalanceThreshold_) external onlyPoolOwner(pool) {
+    function setImbalanceThresholdByPool(
+        address pool,
+        uint256 imbalanceThreshold_
+    ) external onlyPoolOwner(pool) {
         require(imbalanceThreshold_ <= 1e6, "over range");
         _poolSettings[pool].imbalanceThreshold = imbalanceThreshold_;
-        emit SetPoolParam(pool, systemParam.ImbalanceThreshold, imbalanceThreshold_);
+        emit SetPoolParam(
+            pool,
+            systemParam.ImbalanceThreshold,
+            imbalanceThreshold_
+        );
     }
 
-    function setPriceDeviationCoefficientByPool(address pool, uint256 priceDeviationCoefficient_) external onlyPoolOwner(pool) {
+    function setPriceDeviationCoefficientByPool(
+        address pool,
+        uint256 priceDeviationCoefficient_
+    ) external onlyPoolOwner(pool) {
         require(priceDeviationCoefficient_ <= 1e6, "over range");
-        _poolSettings[pool].priceDeviationCoefficient = priceDeviationCoefficient_;
-        emit SetPoolParam(pool, systemParam.PriceDeviationCoefficient, priceDeviationCoefficient_);
+        _poolSettings[pool]
+            .priceDeviationCoefficient = priceDeviationCoefficient_;
+        emit SetPoolParam(
+            pool,
+            systemParam.PriceDeviationCoefficient,
+            priceDeviationCoefficient_
+        );
     }
 
-    function setMinHoldingPeriodByPool(address pool, uint256 minHoldingPeriod_) external onlyPoolOwner(pool) {
+    function setMinHoldingPeriodByPool(address pool, uint256 minHoldingPeriod_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(minHoldingPeriod_ <= 5760, "over range");
         _poolSettings[pool].minHoldingPeriod = minHoldingPeriod_;
-        emit SetPoolParam(pool, systemParam.MinHoldingPeriod, minHoldingPeriod_);
+        emit SetPoolParam(
+            pool,
+            systemParam.MinHoldingPeriod,
+            minHoldingPeriod_
+        );
     }
 
-    function setDebtStartByPool(address pool, uint256 debtStart_) external onlyPoolOwner(pool) {
+    function setDebtStartByPool(address pool, uint256 debtStart_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(debtStart_ <= E4, "over range");
         _poolSettings[pool].debtStart = debtStart_;
         emit SetPoolParam(pool, systemParam.DebtStart, debtStart_);
     }
 
-    function setDebtAllByPool(address pool, uint256 debtAll_) external onlyPoolOwner(pool) {
+    function setDebtAllByPool(address pool, uint256 debtAll_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(debtAll_ <= E4, "over range");
         _poolSettings[pool].debtAll = debtAll_;
         emit SetPoolParam(pool, systemParam.DebtAll, debtAll_);
     }
 
-    function setMinDebtRepayByPool(address pool, uint256 minDebtRepay_) external onlyPoolOwner(pool) {
+    function setMinDebtRepayByPool(address pool, uint256 minDebtRepay_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(minDebtRepay_ <= E4, "over range");
         _poolSettings[pool].minDebtRepay = minDebtRepay_;
         emit SetPoolParam(pool, systemParam.MinDebtRepay, minDebtRepay_);
     }
 
-    function setMaxDebtRepayByPool(address pool, uint256 maxDebtRepay_) external onlyPoolOwner(pool) {
+    function setMaxDebtRepayByPool(address pool, uint256 maxDebtRepay_)
+        external
+        onlyPoolOwner(pool)
+    {
         require(maxDebtRepay_ <= E4, "over range");
         _poolSettings[pool].maxDebtRepay = maxDebtRepay_;
         emit SetPoolParam(pool, systemParam.MaxDebtRepay, maxDebtRepay_);
     }
 
-    function setInterestRateByPool(address pool, uint256 interestRate_) external onlyPoolOwner(pool) {
-        require(interestRate_ >= E4 && interestRate_ <= 2*E4, "over range");
+    function setInterestRateByPool(address pool, uint256 interestRate_)
+        external
+        onlyPoolOwner(pool)
+    {
+        require(interestRate_ >= E4 && interestRate_ <= 2 * E4, "over range");
         _poolSettings[pool].interestRate = interestRate_;
         _debtSettings[IPool(pool).debtToken()] = interestRate_;
         emit SetPoolParam(pool, systemParam.InterestRate, interestRate_);
     }
 
-    function setLiquidityCoefficientByPool(address pool, uint256 liquidityCoefficient_) external onlyPoolOwner(pool) {
-        require(liquidityCoefficient_ > 0 && liquidityCoefficient_ <= 1e6, "over range");
+    function setLiquidityCoefficientByPool(
+        address pool,
+        uint256 liquidityCoefficient_
+    ) external onlyPoolOwner(pool) {
+        require(
+            liquidityCoefficient_ > 0 && liquidityCoefficient_ <= 1e6,
+            "over range"
+        );
         _poolSettings[pool].liquidityCoefficient = liquidityCoefficient_;
-        emit SetPoolParam(pool, systemParam.LiquidityCoefficient, liquidityCoefficient_);
+        emit SetPoolParam(
+            pool,
+            systemParam.LiquidityCoefficient,
+            liquidityCoefficient_
+        );
     }
 
-    function setDeviationByPool(address pool, bool deviation_) external onlyPoolOwner(pool) {
+    function setDeviationByPool(address pool, bool deviation_)
+        external
+        onlyPoolOwner(pool)
+    {
         _poolSettings[pool].deviation = deviation_;
         emit SetPoolDeviation(pool, deviation_);
     }
@@ -676,10 +757,7 @@ contract SystemSettings is ISystemSettings, Ownable {
     }
 
     modifier onlySuspender() {
-        require(
-            _suspender == msg.sender,
-            "caller is not the suspender"
-        );
+        require(_suspender == msg.sender, "caller is not the suspender");
         _;
     }
 
